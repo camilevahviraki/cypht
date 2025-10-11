@@ -2,6 +2,10 @@
  * Possible Sieve fields
  * @type {{Message: [{name: string, options: string[], type: string, selected: boolean},{name: string, options: string[], type: string},{name: string, options: string[], type: string}], Header: [{name: string, options: string[], type: string},{name: string, options: string[], type: string},{name: string, options: string[], type: string},{name: string, options: string[], type: string}]}}
  */
+let is_editing_script = false;
+let current_editing_script_name = "";
+// let hm_sieve_current_account = "";
+var hm_sieve_current_account = "";
 var hm_sieve_condition_fields = function() {
     return {
         'Message': [
@@ -186,15 +190,144 @@ var hm_sieve_possible_actions = function() {
     ];
 };
 
-function blockListPageHandlers() {
-    $(document).on('change', '.select_default_behaviour', function(e) {
-        if ($(this).val() != 'Reject') {
-            $(this).closest('.filter_subblock')
-                .find('.select_default_reject_message')
-                .remove();
+    function add_filter_condition() {
+      let header_fields = "";
+      let message_fields = "";
+
+      hm_sieve_condition_fields().Message.forEach(function (value) {
+        if (value.selected === true) {
+          message_fields +=
+            '<option selected value="' +
+            value.name +
+            '">' +
+            value.description +
+            "</option>";
         } else {
-            $('<input type="text" class="select_default_reject_message form-control" placeholder="'+hm_trans('Reject message')+'" />').insertAfter($(this));
+          message_fields +=
+            '<option value="' +
+            value.name +
+            '">' +
+            value.description +
+            "</option>";
         }
+      });
+      hm_sieve_condition_fields().Header.forEach(function (value) {
+        if (value.selected === true) {
+          header_fields +=
+            '<option selected value="' +
+            value.name +
+            '">' +
+            value.description +
+            "</option>";
+        } else {
+          header_fields +=
+            '<option value="' +
+            value.name +
+            '">' +
+            value.description +
+            "</option>";
+        }
+      });
+      let extra_options =
+        '<td class="col-sm-3"><input type="hidden" class="condition_extra_value form-control form-control-sm" name="sieve_selected_extra_option_value[]" /></td>';
+      $(".sieve_list_conditions_modal").append(
+        "                            <tr>" +
+          '                                <td class="col-sm-2">' +
+          '                                    <select class="add_condition_sieve_filters form-control form-control-sm" name="sieve_selected_conditions_field[]">' +
+          '                                        <optgroup label="Message">' +
+          message_fields +
+          "                                        </optgroup>" +
+          '                                        <optgroup label="Header">' +
+          header_fields +
+          "                                        </optgroup>" +
+          "                                    </select>" +
+          "                                </td>" +
+          extra_options +
+          '                                <td class="col-sm-3">' +
+          '                                    <select class="condition_options form-control form-control-sm" name="sieve_selected_conditions_options[]">' +
+          '                                        <option value="Contains">' +
+          "                                            Contains" +
+          "                                        </option>" +
+          '                                        <option value="!Contains">' +
+          "                                            Not Contains" +
+          "                                        </option>" +
+          '                                        <option value="Matches">' +
+          "                                            Matches" +
+          "                                        </option>" +
+          '                                        <option value="!Matches">' +
+          "                                            Not Matches" +
+          "                                        </option>" +
+          '                                        <option value="Regex">' +
+          "                                            Regex" +
+          "                                        </option>" +
+          '                                        <option value="!Regex">' +
+          "                                            Not Regex" +
+          "                                        </option>" +
+          "                                    </select>" +
+          "                                </td>" +
+          '                                <td class="col-sm-3">' +
+          '                                    <input type="text" name="sieve_selected_option_value[]" class="form-control form-control-sm" />' +
+          "                                </td>" +
+          '                                <td class="col-sm-1 text-end align-middle">' +
+          '                                    <a href="#" class="delete_condition_modal_button btn btn-sm btn-secondary">Delete</a>' +
+          "                                </td>" +
+          "                            </tr>"
+      );
+    }
+
+        function add_filter_action(default_value = "") {
+          let possible_actions_html = "";
+
+          hm_sieve_possible_actions().forEach(function (value) {
+            if (value.selected === true) {
+              possible_actions_html +=
+                '<option selected value="' +
+                value.name +
+                '">' +
+                value.description +
+                "</option>";
+              return;
+            }
+            possible_actions_html +=
+              '<option value="' +
+              value.name +
+              '">' +
+              value.description +
+              "</option>";
+          });
+          let extra_options =
+            '<td class="col-sm-3"><input type="hidden" class="condition_extra_action_value form-control form-control-sm" name="sieve_selected_extra_action_value[]" /></td>';
+          $(".filter_actions_modal_table").append(
+            '<tr class="border" default_value="' +
+              default_value +
+              '">' +
+              '   <td class="col-sm-3">' +
+              '       <select class="sieve_actions_select form-control form-control-sm" name="sieve_selected_actions[]">' +
+              "          " +
+              possible_actions_html +
+              "       </select>" +
+              "    </td>" +
+              extra_options +
+              '    <td class="col-sm-5">' +
+              '    <input type="hidden" name="sieve_selected_action_value[]" value="">' +
+              "    </input>" +
+              '    <td class="col-sm-1 text-end align-middle">' +
+              '           <a href="#" class="delete_action_modal_button btn btn-sm btn-secondary">Delete</a>' +
+              "    </td>" +
+              "</tr>"
+          );
+        }
+
+
+var hm_sieve_button_events = function (edit_filter_modal, edit_script_modal) {
+  /**************************************************************************************
+   *                                      MODAL EVENTS
+   **************************************************************************************/
+
+  $(document)
+    .off("click")
+    .on("click", ".sievefilters_accounts_title", function () {
+      $(this).parent().find(".sievefilters_accounts").toggleClass("d-none");
     });
 
     $(document).on('click', '.submit_default_behavior', function(e) {
@@ -586,47 +719,54 @@ function sieveFiltersPageHandler() {
         $(this).parent().find('.sievefilters_accounts').toggleClass('d-none');
     });
 
-    $(document).on('click', '.add_filter', function() {
-        edit_filter_modal.setTitle('Add Filter');
-        $('.modal_sieve_filter_priority').val('');
-        $('.modal_sieve_filter_test').val('ALLOF');
-        $('#stop_filtering').prop('checked', false);
-        current_account = $(this).attr('account');
-        edit_filter_modal.open();
+  $(document).on("click", ".add_filter", function () {
+    edit_filter_modal.setTitle("Add Filter");
+    $(".modal_sieve_filter_priority").val("");
+    $(".modal_sieve_filter_test").val("ALLOF");
+    $("#stop_filtering").prop("checked", false);
+    hm_sieve_current_account = $(this).attr("account");;
+    edit_filter_modal.open();
 
-        // Reset the form fields when opening the modal
-        $(".modal_sieve_filter_name").val('');
-        $(".modal_sieve_script_priority").val('');
-        $(".sieve_list_conditions_modal").empty();
-        $(".filter_actions_modal_table").empty();
-    });
-    $(document).on('click', '.add_script', function() {
-        edit_script_modal.setTitle('Add Script');
-        $('.modal_sieve_script_textarea').val('');
-        $('.modal_sieve_script_name').val('');
-        $('.modal_sieve_script_priority').val('');
-        is_editing_script = false;
-        current_editing_script_name = '';
-        current_account = $(this).attr('account');
-        edit_script_modal.open();
-    });
+    // Reset the form fields when opening the modal
+    $(".modal_sieve_filter_name").val("");
+    $(".modal_sieve_script_priority").val("");
+    $(".sieve_list_conditions_modal").empty();
+    $(".filter_actions_modal_table").empty();
+  });
+  $(document).on("click", ".add_script", function () {
+    edit_script_modal?.setTitle("Add Script");
+    $(".modal_sieve_script_textarea").val("");
+    $(".modal_sieve_script_name").val("");
+    $(".modal_sieve_script_priority").val("");
+    is_editing_script = false;
+    current_editing_script_name = "";
+    hm_sieve_current_account = $(this).attr("account");
+    edit_script_modal?.open();
+  });
 
-    /**
-     * Delete action Button
-     */
-    $(document).on('click', '.delete_else_action_modal_button', function (e) {
-        e.preventDefault();
-        $(this).parent().parent().remove();
-    });
+  /**
+   * Delete action Button
+   */
+  $(document).on("click", ".delete_else_action_modal_button", function (e) {
+    e.preventDefault();
+    $(this).parent().parent().remove();
+  });
 
-    /**
-     * Delete action Button
-     */
-    $(document).on('click', '.delete_action_modal_button', function (e) {
-        e.preventDefault();
-        $(this).parent().parent().remove();
-    });
+  /**
+   * Delete action Button
+   */
+  $(document).on("click", ".delete_action_modal_button", function (e) {
+    e.preventDefault();
+    $(this).parent().parent().remove();
+  });
 
+  /**
+   * Delete Condition Button
+   */
+  $(document).on("click", ".delete_condition_modal_button", function (e) {
+    e.preventDefault();
+    $(this).parent().parent().remove();
+  });
     /**
      * Delete Condition Button
      */
@@ -717,6 +857,12 @@ function sieveFiltersPageHandler() {
         }
     }
 
+  /**
+   * Add Condition Button
+   */
+  $(document).on("click", ".sieve_add_condition_modal_button", function () {
+    add_filter_condition();
+  });
     /**
      * Add Condition Button
      */
@@ -771,300 +917,582 @@ function sieveFiltersPageHandler() {
         );
     }
 
-    /**
-     * Add Action Button
-     */
-    $(document).on('click', '.filter_modal_add_action_btn', function () {
-        add_filter_action();
+  /**
+   * Add Action Button
+   */
+  $(document).on("click", ".filter_modal_add_action_btn", function () {
+    add_filter_action();
+  });
+
+  /**
+   * Add Else Action Button
+   */
+  $(document).on("click", ".filter_modal_add_else_action_btn", function () {
+    let possible_actions_html = "";
+
+    hm_sieve_possible_actions().forEach(function (value) {
+      if (value.selected === true) {
+        possible_actions_html +=
+          '<option selected value="' +
+          value.name +
+          '">' +
+          value.description +
+          "</option>";
+        return;
+      }
+      possible_actions_html +=
+        '<option value="' + value.name + '">' + value.description + "</option>";
     });
 
-    /**
-     * Add Else Action Button
-     */
-    $(document).on('click', '.filter_modal_add_else_action_btn', function () {
-        let possible_actions_html = '';
+    $(".filter_else_actions_modal_table").append(
+      '<tr class="border">' +
+        '   <td class="col-sm-4">' +
+        '       <select class="sieve_actions_select form-control form-control-sm">' +
+        "          " +
+        possible_actions_html +
+        "       </select>" +
+        "    </td>" +
+        "    <td>" +
+        "    </td>" +
+        '    <td class="col-sm-1 text-end align-middle">' +
+        '           <a href="#" class="delete_else_action_modal_button">Delete</a>' +
+        "    </td>" +
+        "</tr>"
+    );
+  });
 
-        hm_sieve_possible_actions().forEach(function (value) {
-            if (value.selected === true) {
-                possible_actions_html += '<option selected value="'+value.name+'">' + value.description + '</option>';
-                return;
-            }
-            possible_actions_html += '<option value="'+value.name+'">' + value.description + '</option>';
-        });
-
-        $('.filter_else_actions_modal_table').append(
-            '<tr class="border">' +
-            '   <td class="col-sm-4">' +
-            '       <select class="sieve_actions_select form-control form-control-sm">' +
-            '          ' + possible_actions_html +
-            '       </select>' +
-            '    </td>' +
-            '    <td>' +
-            '    </td>' +
-            '    <td class="col-sm-1 text-end align-middle">' +
-            '           <a href="#" class="delete_else_action_modal_button">Delete</a>' +
-            '    </td>' +
-            '</tr>'
+  /**
+   * Action change
+   */
+  $(document).on("change", ".sieve_actions_select", function () {
+    let tr_elem = $(this).parent().parent();
+    console.log(tr_elem.attr("default_value"));
+    let elem = $(this).parent().next().next();
+    let elem_extra = $(this)
+      .parent()
+      .next()
+      .find(".condition_extra_action_value");
+    let action_name = $(this).val();
+    let selected_action;
+    hm_sieve_possible_actions().forEach(function (action) {
+      if (action_name === action.name) {
+        selected_action = action;
+      }
+    });
+    if (selected_action) {
+      elem_extra.attr("type", "hidden");
+      if (selected_action.extra_field) {
+        elem_extra.attr("type", "text");
+        elem_extra.attr("placeholder", selected_action.extra_field_placeholder);
+      }
+      if (selected_action.type === "none") {
+        elem.html(
+          '<input name="sieve_selected_action_value[]" class="form-control form-control-sm" type="hidden" value="" />'
         );
-    });
-
-
-    /**
-     * Action change
-     */
-    $(document).on('change', '.sieve_actions_select', function () {
-        let tr_elem = $(this).parent().parent();
-        console.log(tr_elem.attr('default_value'));
-        let elem = $(this).parent().next().next();
-        let elem_extra = $(this).parent().next().find('.condition_extra_action_value');
-        let action_name = $(this).val();
-        let selected_action;
-        hm_sieve_possible_actions().forEach(function (action) {
-           if (action_name === action.name) {
-                selected_action = action;
-           }
+      }
+      if (selected_action.type === "string") {
+        elem.html(
+          '<input name="sieve_selected_action_value[]" class="form-control form-control-sm" placeholder="' +
+            selected_action.placeholder +
+            '" type="text" value="" />'
+        );
+      }
+      if (selected_action.type === "int") {
+        elem.html(
+          '<input name="sieve_selected_action_value[]" class="form-control form-control-sm" placeholder="' +
+            selected_action.placeholder +
+            '" type="number" />'
+        );
+      }
+      if (selected_action.type === "number") {
+        elem.html(
+          '<input name="sieve_selected_action_value[]" class="form-control form-control-sm" placeholder="' +
+            selected_action.placeholder +
+            '" type="number" />'
+        );
+      }
+      if (selected_action.type === "text") {
+        elem.html(
+          '<textarea name="sieve_selected_action_value[]" class="form-control form-control-sm" placeholder="' +
+            selected_action.placeholder +
+            '"></textarea>'
+        );
+      }
+      if (selected_action.type === "select") {
+        options = "";
+        selected_action.values.forEach(function (val) {
+          if (tr_elem.attr("default_value") === val) {
+            options =
+              options +
+              '<option value="' +
+              val +
+              '" selected>' +
+              val +
+              "</option>";
+          } else {
+            options =
+              options + '<option value="' + val + '">' + val + "</option>";
+          }
         });
-        if (selected_action) {
-            elem_extra.attr('type', 'hidden');
-            if (selected_action.extra_field) {
-                elem_extra.attr('type', 'text');
-                elem_extra.attr('placeholder', selected_action.extra_field_placeholder)
-            }
-            if (selected_action.type === 'none') {
-                elem.html('<input name="sieve_selected_action_value[]" class="form-control form-control-sm" type="hidden" value="" />');
-            }
-            if (selected_action.type === 'string') {
-                elem.html('<input name="sieve_selected_action_value[]" class="form-control form-control-sm" placeholder="'+selected_action.placeholder+'" type="text" value="" />');
-            }
-            if (selected_action.type === 'int') {
-                elem.html('<input name="sieve_selected_action_value[]" class="form-control form-control-sm" placeholder="'+selected_action.placeholder+'" type="number" />');
-            }
-            if (selected_action.type === 'number') {
-                elem.html('<input name="sieve_selected_action_value[]" class="form-control form-control-sm" placeholder="'+selected_action.placeholder+'" type="number" />');
-            }
-            if (selected_action.type === 'text') {
-                elem.html('<textarea name="sieve_selected_action_value[]" class="form-control form-control-sm" placeholder="'+selected_action.placeholder+'"></textarea>');
-            }
-            if (selected_action.type === 'select') {
-                options = '';
-                selected_action.values.forEach(function(val) {
-                    if (tr_elem.attr('default_value') === val) {
-                        options = options + '<option value="' + val + '" selected>'+ val +'</option>'
-                    } else {
-                        options = options + '<option value="' + val + '">'+ val +'</option>'
-                    }
-                });
-                elem.html('<select name="sieve_selected_action_value[]" class="form-control form-control-sm">'+ options +'</select>');
-            }
-            if (selected_action.type === 'mailbox') {
-                let mailboxes = null;
-                tr_elem.children().eq(2).html(hm_spinner());
-                Hm_Ajax.request(
-                    [   {'name': 'hm_ajax_hook', 'value': 'ajax_sieve_get_mailboxes'},
-                        {'name': 'imap_account', 'value': current_account} ],
-                    function(res) {
-                        mailboxes = JSON.parse(res.mailboxes);
-                        options = '';
-                        mailboxes.forEach(function(val) {
-                            if (tr_elem.attr('default_value') === val) {
-                                options = options + '<option value="' + val + '" selected>'+ val +'</option>'
-                            } else {
-                                options = options + '<option value="' + val + '">'+ val +'</option>'
-                            }
-                        });
-                        elem.html('<select name="sieve_selected_action_value[]" class="form-control form-control-sm">'+ options +'</select>');
-                        $("[name^=sieve_selected_action_value]").last().val(elem.parent().attr('default_value'));
-                    }
-                );
-            }
-        }
-    })
-
-    /**
-     * Condition type change
-     */
-    $(document).on('change', '.add_condition_sieve_filters', function () {
-        let condition_name = $(this).val();
-        let elem = $(this).parent().next().next().find('.condition_options');
-        let elem_extra = $(this).parent().next().find('.condition_extra_value');
-        let elem_type = $(this).parent().next().next().next();
-        let condition;
-        let options_html = '';
-        let input_type_html = '';
-        hm_sieve_condition_fields().Message.forEach(function (cond) {
-            if (condition_name === cond.name) {
-                condition = cond;
-            }
-        });
-        hm_sieve_condition_fields().Header.forEach(function (cond) {
-            if (condition_name === cond.name) {
-                condition = cond;
-            }
-        });
-        if (condition) {
-            if (condition.extra_option === true) {
-                elem_extra.attr('type', 'text');
-                elem_extra.attr('placeholder', condition.extra_option_description);
-            } else {
-                elem_extra.attr('type', 'hidden');
-            }
-            condition.options.forEach(function (option) {
-                options_html += '<option value="'+option+'">'+option+'</option>';
-                options_html += '<option value="!'+option+'">Not '+option+'</option>';
+        elem.html(
+          '<select name="sieve_selected_action_value[]" class="form-control form-control-sm">' +
+            options +
+            "</select>"
+        );
+      }
+      if (selected_action.type === "mailbox") {
+        let mailboxes = null;
+        tr_elem.children().eq(2).html(hm_spinner());
+        Hm_Ajax.request(
+          [
+            { name: "hm_ajax_hook", value: "ajax_sieve_get_mailboxes" },
+            { name: "imap_account", value: hm_sieve_current_account },
+          ],
+          function (res) {
+            mailboxes = JSON.parse(res.mailboxes);
+            options = "";
+            mailboxes.forEach(function (val) {
+              if (tr_elem.attr("default_value") === val) {
+                options =
+                  options +
+                  '<option value="' +
+                  val +
+                  '" selected>' +
+                  val +
+                  "</option>";
+              } else {
+                options =
+                  options + '<option value="' + val + '">' + val + "</option>";
+              }
             });
-            elem.html(options_html);
+            elem.html(
+              '<select name="sieve_selected_action_value[]" class="form-control form-control-sm">' +
+                options +
+                "</select>"
+            );
+            $("[name^=sieve_selected_action_value]")
+              .last()
+              .val(elem.parent().attr("default_value"));
+          }
+        );
+      }
+    }
+  });
 
-            if (condition.type === 'string') {
-                elem_type.html('<input name="sieve_selected_option_value[]" type="text" class="form-control form-control-sm" />')
+  /**
+   * Condition type change
+   */
+  $(document).on("change", ".add_condition_sieve_filters", function () {
+    let condition_name = $(this).val();
+    let elem = $(this).parent().next().next().find(".condition_options");
+    let elem_extra = $(this).parent().next().find(".condition_extra_value");
+    let elem_type = $(this).parent().next().next().next();
+    let condition;
+    let options_html = "";
+    let input_type_html = "";
+    hm_sieve_condition_fields().Message.forEach(function (cond) {
+      if (condition_name === cond.name) {
+        condition = cond;
+      }
+    });
+    hm_sieve_condition_fields().Header.forEach(function (cond) {
+      if (condition_name === cond.name) {
+        condition = cond;
+      }
+    });
+    if (condition) {
+      if (condition.extra_option === true) {
+        elem_extra.attr("type", "text");
+        elem_extra.attr("placeholder", condition.extra_option_description);
+      } else {
+        elem_extra.attr("type", "hidden");
+      }
+      condition.options.forEach(function (option) {
+        options_html +=
+          '<option value="' + option + '">' + option + "</option>";
+        options_html +=
+          '<option value="!' + option + '">Not ' + option + "</option>";
+      });
+      elem.html(options_html);
+
+      if (condition.type === "string") {
+        elem_type.html(
+          '<input name="sieve_selected_option_value[]" type="text" class="form-control form-control-sm" />'
+        );
+      }
+      if (condition.type === "int") {
+        elem_type.html(
+          '<input name="sieve_selected_option_value[]" type="number" class="form-control form-control-sm" />'
+        );
+      }
+      if (condition.type === "none") {
+        elem_type.html(
+          '<input name="sieve_selected_option_value[]" type="hidden" value="none" />'
+        );
+      }
+    }
+  });
+
+  /**
+   * Delete filter event
+   */
+  $(document).on("click", ".delete_filter", function (e) {
+    e.preventDefault();
+    if (!confirm("Do you want to delete filter?")) {
+      return;
+    }
+    let obj = $(this);
+    Hm_Ajax.request(
+      [
+        { name: "hm_ajax_hook", value: "ajax_sieve_delete_filter" },
+        { name: "imap_account", value: $(this).attr("imap_account") },
+        { name: "sieve_script_name", value: $(this).attr("script_name") },
+      ],
+      function (res) {
+        if (res.script_removed == "1") {
+          obj.parent().parent().remove();
+        }
+      }
+    );
+  });
+
+  /**
+   * Toggle Filter
+   */
+  $(".toggle_filter").on("change", function () {
+    const checkbox = $(this);
+    Hm_Ajax.request(
+      [
+        { name: "hm_ajax_hook", value: "ajax_sieve_toggle_script_state" },
+        { name: "imap_account", value: checkbox.attr("imap_account") },
+        { name: "script_state", value: checkbox.prop("checked") },
+        { name: "sieve_script_name", value: checkbox.attr("script_name") },
+      ],
+      function (res) {
+        if (res.success) {
+          checkbox.prop("checked", !checkbox.prop("checked"));
+        }
+      }
+    );
+  });
+
+  /**
+   * Delete script event
+   */
+  $(document).on("click", ".delete_script", function (e) {
+    e.preventDefault();
+    if (!confirm("Do you want to delete script?")) {
+      return;
+    }
+    let obj = $(this);
+    Hm_Ajax.request(
+      [
+        { name: "hm_ajax_hook", value: "ajax_sieve_delete_script" },
+        { name: "imap_account", value: $(this).attr("imap_account") },
+        { name: "sieve_script_name", value: $(this).attr("script_name") },
+      ],
+      function (res) {
+        if (res.script_removed == "1") {
+          obj.parent().parent().remove();
+        }
+      }
+    );
+  });
+
+  /**
+   * Edit script event
+   */
+  $(document).on("click", ".edit_script", function (e) {
+    e.preventDefault();
+    let obj = $(this);
+    edit_script_modal?.setTitle("Edit Script");
+    hm_sieve_current_account = $(this).attr("account");
+    is_editing_script = true;
+    current_editing_script_name = $(this).attr("script_name");
+    hm_sieve_current_account = $(this).attr("imap_account");
+    $(".modal_sieve_script_name").val($(this).attr("script_name_parsed"));
+    $(".modal_sieve_script_priority").val($(this).attr("priority"));
+    Hm_Ajax.request(
+      [
+        { name: "hm_ajax_hook", value: "ajax_sieve_edit_script" },
+        { name: "imap_account", value: $(this).attr("imap_account") },
+        { name: "sieve_script_name", value: $(this).attr("script_name") },
+      ],
+      function (res) {
+        $(".modal_sieve_script_textarea").html(res.script);
+        edit_script_modal?.open();
+      }
+    );
+  });
+
+  /**
+   * Edit filter event
+   */
+  $(document).on("click", ".edit_filter", function (e) {
+    e.preventDefault();
+    let obj = $(this);
+    hm_sieve_current_account = $(this).attr("account");
+    is_editing_filter = true;
+    current_editing_filter_name = $(this).attr("script_name");
+    hm_sieve_current_account = $(this).attr("imap_account");
+    // $('#stop_filtering').prop('checked', false);
+    $(".modal_sieve_filter_name").val($(this).attr("script_name_parsed"));
+    $(".modal_sieve_filter_priority").val($(this).attr("priority"));
+    $(".sieve_list_conditions_modal").html("");
+    $(".filter_actions_modal_table").html("");
+    Hm_Ajax.request(
+      [
+        { name: "hm_ajax_hook", value: "ajax_sieve_edit_filter" },
+        { name: "imap_account", value: $(this).attr("imap_account") },
+        { name: "sieve_script_name", value: $(this).attr("script_name") },
+      ],
+      function (res) {
+        conditions = JSON.parse(JSON.parse(res.conditions));
+        actions = JSON.parse(JSON.parse(res.actions));
+        test_type = res.test_type;
+        $(".modal_sieve_filter_test").val(test_type);
+        conditions.forEach(function (condition) {
+          add_filter_condition();
+          $(".add_condition_sieve_filters").last().val(condition.condition);
+          $(".add_condition_sieve_filters").last().trigger("change");
+          $(".condition_options").last().val(condition.type);
+          $("[name^=sieve_selected_extra_option_value]")
+            .last()
+            .val(condition.extra_option_value);
+          if ($("[name^=sieve_selected_option_value]").last().is("input")) {
+            $("[name^=sieve_selected_option_value]")
+              .last()
+              .val(condition.value);
+          }
+        });
+
+        actions.forEach(function (action) {
+          if (action.action === "stop") {
+            $("#stop_filtering").prop("checked", true);
+          } else {
+            add_filter_action(action.value);
+            $(".sieve_actions_select").last().val(action.action);
+            $(".sieve_actions_select").last().trigger("change");
+            $("[name^=sieve_selected_extra_action_value]")
+              .last()
+              .val(action.extra_option_value);
+            if ($("[name^=sieve_selected_action_value]").last().is("input")) {
+              $("[name^=sieve_selected_action_value]").last().val(action.value);
+            } else if (
+              $("[name^=sieve_selected_action_value]").last().is("textarea")
+            ) {
+              $("[name^=sieve_selected_action_value]")
+                .last()
+                .text(action.value);
             }
-            if (condition.type === 'int') {
-                elem_type.html('<input name="sieve_selected_option_value[]" type="number" class="form-control form-control-sm" />')
-            }
-            if (condition.type === 'none') {
-                elem_type.html('<input name="sieve_selected_option_value[]" type="hidden" value="none" />')
-            }
+          }
+        });
+        edit_filter_modal.setTitle(current_editing_filter_name);
+        edit_filter_modal.open();
+      }
+    );
+  });
+  return true;
+};
+
+function blockListPageHandlers() {
+    $(document).on('change', '.select_default_behaviour', function(e) {
+        if ($(this).val() != 'Reject') {
+            $(this).closest('.filter_subblock')
+                .find('.select_default_reject_message')
+                .remove();
+        } else {
+            $('<input type="text" class="select_default_reject_message form-control" placeholder="'+hm_trans('Reject message')+'" />').insertAfter($(this));
         }
     });
 
-    /**
-     * Delete filter event
-     */
-    $(document).on('click', '.delete_filter', function (e) {
+    $(document).on('click', '.submit_default_behavior', function(e) {
         e.preventDefault();
-        if (!confirm('Do you want to delete filter?')) {
+        let parent = $(this).closest('.filter_subblock');
+        let elem = parent.find('.select_default_behaviour');
+        let submit = $(this);
+
+        const payload = [
+            {'name': 'hm_ajax_hook', 'value': 'ajax_sieve_block_change_behaviour'},
+            {'name': 'selected_behaviour', 'value': elem.val()},
+            {'name': 'imap_server_id', 'value': elem.attr('imap_account')}
+        ];
+        if (elem.val() == 'Reject') {
+            const reject = parent.find('.select_default_reject_message');
+            payload.push({'name': 'reject_message', 'value': reject.val()});
+        }
+
+        submit.attr('disabled', 1);
+        Hm_Ajax.request(
+            payload,
+            function(res) {
+                submit.removeAttr('disabled');
+            }
+        );
+    });
+
+    $(document).on('click', '.unblock_button', function(e) {
+        e.preventDefault();
+        if (!confirm(hm_trans('Do you want to unblock sender?'))) {
             return;
         }
-        let obj = $(this);
+        let sender = $(this).parent().parent().children().html();
+        let elem = $(this);
         Hm_Ajax.request(
-            [   {'name': 'hm_ajax_hook', 'value': 'ajax_sieve_delete_filter'},
-                {'name': 'imap_account', 'value': $(this).attr('imap_account')},
-                {'name': 'sieve_script_name', 'value': $(this).attr('script_name')}],
+            [   {'name': 'hm_ajax_hook', 'value': 'ajax_sieve_unblock_sender'},
+                {'name': 'imap_server_id', 'value': $(this).attr('mailbox_id')},
+                {'name': 'sender', 'value': sender}
+            ],
             function(res) {
-                if (res.script_removed == '1') {
-                    obj.parent().parent().remove();
-                }
+                elem.parent().parent().remove();
+                var num_filters = $("#filter_num_" + elem.attr('mailbox_id')).html();
+                num_filters = parseInt(num_filters) - 1;
+                $("#filter_num_" + elem.attr('mailbox_id')).html(num_filters);
             }
         );
     });
 
-    /**
-     * Toggle Filter
-     */
-    $('.toggle_filter').on('change', function () {
-        const checkbox = $(this);
-        Hm_Ajax.request(
-            [   {'name': 'hm_ajax_hook', 'value': 'ajax_sieve_toggle_script_state'},
-                {'name': 'imap_account', 'value': checkbox.attr('imap_account')},
-                {'name': 'script_state', 'value': checkbox.prop('checked')},
-                {'name': 'sieve_script_name', 'value': checkbox.attr('script_name')}],
-            function(res) {
-                if (res.success) {
-                    checkbox.prop('checked', !checkbox.prop('checked'));
-                }
-            }
-        );
-    });
-
-    /**
-     * Delete script event
-     */
-    $(document).on('click', '.delete_script', function (e) {
+    $(document).on('click', '.edit_blocked_behavior', function(e) {
         e.preventDefault();
-        if (!confirm('Do you want to delete script?')) {
-            return;
+        let parent = $(this).closest('tr');
+        let elem = parent.find('.block_action');
+        let sender = $(this).closest('tr').children().first().html();
+        let scope = sender.startsWith('*@') ? 'domain': 'sender';
+
+        Hm_Ajax.request(
+            [
+                {'name': 'hm_ajax_hook', 'value': 'ajax_sieve_block_unblock'},
+                {'name': 'imap_server_id', 'value': $(this).attr('mailbox_id')},
+                {'name': 'block_action', 'value': elem.val()},
+                {'name': 'scope', 'value': scope},
+                {'name': 'sender', 'value': sender},
+                {'name': 'reject_message', 'value': $('#reject_message_textarea').val() ?? ''},
+                {'name': 'change_behavior', 'value': true}
+            ],
+            function(res) {
+                if (/^(Sender|Domain) Behavior Changed$/.test(res.router_user_msgs[0].text)) {
+                    window.location = window.location;
+                }
+            }
+        );
+    });
+
+    $(document).on('click', '.block_domain_button', function(e) {
+        e.preventDefault();
+        let sender = $(this).parent().parent().children().html();
+        let elem = $(this);
+        Hm_Ajax.request(
+            [   {'name': 'hm_ajax_hook', 'value': 'ajax_sieve_block_domain'},
+                {'name': 'imap_server_id', 'value': $(this).attr('mailbox_id')},
+                {'name': 'sender', 'value': sender}
+            ],
+            function(res) {
+                if (res && res.reload_page) {
+                    window.location = window.location;
+                }
+            }
+        );
+    });
+
+    $(document).on('click', '.edit_email_behavior_submit', function(e) {
+        e.preventDefault();
+        let sender = $(this).parent().parent().children().html();
+        let elem = $(this);
+        Hm_Ajax.request(
+            [   {'name': 'hm_ajax_hook', 'value': 'ajax_sieve_block_domain'},
+                {'name': 'imap_server_id', 'value': $(this).attr('mailbox_id')},
+                {'name': 'sender', 'value': sender}
+            ],
+            function(res) {
+                window.location = window.location;
+            }
+        );
+    });
+    
+    $(document).on('click', '.toggle-behavior-dropdown', function(e) {
+        e.preventDefault();
+        var default_val = $(this).data('action');
+        $('#block_sender_form').trigger('reset');
+        $('#reject_message').remove();
+        $('#block_action').val(default_val).trigger('change');
+        $('#edit_blocked_behavior').attr('data-mailbox-id', $(this).attr('mailbox_id'));
+        if (default_val == 'reject_with_message') {
+            $('#reject_message_textarea').val($(this).data('reject-message'));
         }
-        let obj = $(this);
-        Hm_Ajax.request(
-            [   {'name': 'hm_ajax_hook', 'value': 'ajax_sieve_delete_script'},
-                {'name': 'imap_account', 'value': $(this).attr('imap_account')},
-                {'name': 'sieve_script_name', 'value': $(this).attr('script_name')}],
-            function(res) {
-                if (res.script_removed == '1') {
-                    obj.parent().parent().remove();
-                }
-            }
-        );
     });
 
-    /**
-     * Edit script event
-     */
-    $(document).on('click', '.edit_script', function (e) {
-        e.preventDefault();
-        let obj = $(this);
-        edit_script_modal.setTitle('Edit Script');
-        current_account = $(this).attr('account');
-        is_editing_script = true;
-        current_editing_script_name = $(this).attr('script_name');
-        current_account = $(this).attr('imap_account');
-        $('.modal_sieve_script_name').val($(this).attr('script_name_parsed'));
-        $('.modal_sieve_script_priority').val($(this).attr('priority'));
-        Hm_Ajax.request(
-            [   {'name': 'hm_ajax_hook', 'value': 'ajax_sieve_edit_script'},
-                {'name': 'imap_account', 'value': $(this).attr('imap_account')},
-                {'name': 'sieve_script_name', 'value': $(this).attr('script_name')}],
-            function(res) {
-                $('.modal_sieve_script_textarea').html(res.script);
-                edit_script_modal.open();
-            }
-        );
+    $(document).off('click', '.sievefilters_accounts_title').on('click', '.sievefilters_accounts_title', function() {
+        if (parseInt($(this).data("num-blocked")) > 0) {
+            $(this).parent().find('.sievefilters_accounts').toggleClass('d-none');
+        } else {
+            alert(hm_trans("This action requires at least 1 blocked element."))
+        }
+    });
+    load_sieve_filters('ajax_block_account_sieve_filters');
+}
+
+function cleanUpSieveFiltersPage() {
+    bootstrap.Modal.getInstance(document.getElementById('myEditFilterModal')).dispose();
+    bootstrap.Modal.getInstance(document.getElementById('myEditScript')).dispose();
+    document.getElementById('myEditScript').remove();
+    document.getElementById('myEditFilterModal').remove();
+}
+
+function sieveFiltersPageHandler() {
+
+    
+    /**************************************************************************************
+         *                             BOOTSTRAP SCRIPT MODAL
+         **************************************************************************************/
+    const save_filter = Hm_Filters.save_filter;
+    const save_script = Hm_Filters.save_script;
+
+    var edit_script_modal = new Hm_Modal({
+        size: 'xl',
+        modalId: 'myEditScript'
     });
 
-    /**
-     * Edit filter event
-     */
-    $(document).on('click', '.edit_filter', function (e) {
-        e.preventDefault();
-        let obj = $(this);
-        current_account = $(this).attr('account');
-        is_editing_filter = true;
-        current_editing_filter_name = $(this).attr('script_name');
-        current_account = $(this).attr('imap_account');
-        // $('#stop_filtering').prop('checked', false);
-        $('.modal_sieve_filter_name').val($(this).attr('script_name_parsed'));
-        $('.modal_sieve_filter_priority').val($(this).attr('priority'));
-        $('.sieve_list_conditions_modal').html('');
-        $('.filter_actions_modal_table').html('');
-        Hm_Ajax.request(
-            [   {'name': 'hm_ajax_hook', 'value': 'ajax_sieve_edit_filter'},
-                {'name': 'imap_account', 'value': $(this).attr('imap_account')},
-                {'name': 'sieve_script_name', 'value': $(this).attr('script_name')}],
-            function(res) {
-                conditions = JSON.parse(JSON.parse(res.conditions));
-                actions = JSON.parse(JSON.parse(res.actions));
-                test_type = res.test_type;
-                $(".modal_sieve_filter_test").val(test_type);
-                conditions.forEach(function (condition) {
-                    add_filter_condition();
-                    $(".add_condition_sieve_filters").last().val(condition.condition);
-                    $(".add_condition_sieve_filters").last().trigger('change');
-                    $(".condition_options").last().val(condition.type);
-                    $("[name^=sieve_selected_extra_option_value]").last().val(condition.extra_option_value);
-                    if ($("[name^=sieve_selected_option_value]").last().is('input')) {
-                        $("[name^=sieve_selected_option_value]").last().val(condition.value);
-                    }
-                });
+    // set content
+    edit_script_modal.setContent(document.querySelector('#edit_script_modal').innerHTML);
+    $('#edit_script_modal').remove();
 
-                actions.forEach(function (action) {
-                    if (action.action === "stop") {
-                        $('#stop_filtering').prop('checked', true);
-                    } else {
-                        add_filter_action(action.value);
-                        $(".sieve_actions_select").last().val(action.action);
-                        $(".sieve_actions_select").last().trigger('change');
-                        $("[name^=sieve_selected_extra_action_value]").last().val(action.extra_option_value);
-                        if ($("[name^=sieve_selected_action_value]").last().is('input')) {
-                            $("[name^=sieve_selected_action_value]").last().val(action.value);
-                        } else if ($("[name^=sieve_selected_action_value]").last().is('textarea')) {
-                            $("[name^=sieve_selected_action_value]").last().text(action.value);
-                        }
-                    }
-                });
-                edit_filter_modal.setTitle(current_editing_filter_name);
-                edit_filter_modal.open();
-            }
-        );
+    // add a button
+    edit_script_modal.addFooterBtn('Save', 'btn-primary', async function () {
+        console.log("Current account:", hm_sieve_current_account);
+        save_script(hm_sieve_current_account);
     });
+
+
+    /**************************************************************************************
+     *                             BOOTSTRAP SIEVE FILTER MODAL
+     **************************************************************************************/
+    var edit_filter_modal = new Hm_Modal({
+        size: 'xl',
+        modalId: 'myEditFilterModal',
+    });
+
+    hm_sieve_button_events(edit_filter_modal, edit_script_modal);
+
+    // set content
+    edit_filter_modal.setContent(document.querySelector('#edit_filter_modal').innerHTML);
+    $('#edit_filter_modal').remove();
+
+    // add a button
+    edit_filter_modal.addFooterBtn('Save', 'btn-primary ms-auto', async function () {
+        let result = save_filter(hm_sieve_current_account);
+        if (result) {
+            edit_filter_modal.hide();
+        }
+    });
+
+    // add another button
+    edit_filter_modal.addFooterBtn('Convert to code', 'btn-warning', async function () {
+        let result = save_filter(hm_sieve_current_account, true);
+        if (result) {
+            edit_filter_modal.hide();
+        }
+    });
+
     load_sieve_filters('ajax_account_sieve_filters');
 }
 
