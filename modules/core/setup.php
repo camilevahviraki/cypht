@@ -113,6 +113,7 @@ add_output('settings', 'privacy_settings', 'true', 'core', 'start_unread_setting
 /* message list page */
 setup_base_page('message_list');
 add_handler('message_list', 'default_sort_order_setting', true, 'core', 'load_user_data', 'after');
+// add_handler('message_list', 'load_account_sieve_filters', true, 'sievefilters', 'default_sort_order_settinga', 'after');
 add_output('message_list', 'message_list_heading', true, 'core', 'content_section_start', 'after');
 add_output('message_list', 'message_list_start', true, 'core', 'message_list_heading', 'after');
 add_output('message_list', 'message_list_end', true, 'core', 'message_list_start', 'after');
@@ -236,7 +237,9 @@ return array(
         'pages' => array(FILTER_VALIDATE_INT, false),
         'folder_status' => array(FILTER_UNSAFE_RAW, FILTER_REQUIRE_ARRAY),
         'imap_server_id' => array(FILTER_UNSAFE_RAW, false),
-        'imap_service_name' => array(FILTER_UNSAFE_RAW, false)
+        'imap_service_name' => array(FILTER_UNSAFE_RAW, false),
+        'mailbox' => array(FILTER_UNSAFE_RAW, false),
+        'mailbox_name' => array(FILTER_UNSAFE_RAW, false),
     ),
     'allowed_cookie' => array(
         'CYPHTID' => FILTER_UNSAFE_RAW,
@@ -282,6 +285,7 @@ return array(
         'sort' => FILTER_SANITIZE_FULL_SPECIAL_CHARS,
         'keyword' => FILTER_SANITIZE_FULL_SPECIAL_CHARS,
         'screen_emails' => FILTER_SANITIZE_FULL_SPECIAL_CHARS,
+        'mailbox_name' => FILTER_UNSAFE_RAW,
     ),
 
     'allowed_post' => array(
