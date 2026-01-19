@@ -1096,7 +1096,7 @@ var imap_perform_move_copy = function(dest_id, context, action = null) {
                             $('.'+Hm_Utils.clean_selector(res.move_count[index])).remove();
                         }
                         if (res.emails_to_block) {
-                            block_unblock_sender("", Hm_Utils.parse_folder_path(getListPathParam()), 'sender', 'blocked', res.emails_to_block, '', true);
+                            block_unblock_sender("", Hm_Utils.parse_folder_path(getListPathParam()), 'sender', 'default', res.emails_to_block, '', true);
                         }
                     }
                     if (getListPathParam().substr(0, 4) === 'imap') {
@@ -1483,7 +1483,8 @@ $('.screen-email-like').on("click", function() {
         }
     });
 
-    if (email_existing_in_blocked_senders) {
+    
+    if (email_existing_in_blocked_senders.length > 0) {
         var list_html = "<ol>";
         email_existing_in_blocked_senders.forEach(sender => {
             sender = sender.trim();
