@@ -3,8 +3,8 @@ function applyContactsPageHandlers() {
     $('.add_contact_form').on('submit', function(e) {
         var emailField = $('#contact_email');
         var email = emailField.val();
-        
-        if (email && Hm_Utils.is_valid_email(email)) {
+
+        if (email && !Hm_Utils.is_valid_email(email)) {
             e.preventDefault();
             e.stopPropagation();
             emailField.focus();
@@ -17,14 +17,14 @@ function applyContactsPageHandlers() {
     // Real-time validation feedback on email field
     $('#contact_email').on('blur', function() {
         var email = $(this).val();
+        // Always remove existing error messages first
+        $(this).siblings('.invalid-feedback').remove();
+
         if (email && !Hm_Utils.is_valid_email(email)) {
             $(this).addClass('is-invalid');
-            if ($(this).next('.invalid-feedback').length === 0) {
-                $(this).after('<div class="invalid-feedback">' + hm_trans('Please enter a valid email address with a proper domain (e.g., user@example.com)') + '</div>');
-            }
+            $(this).after('<div class="invalid-feedback">' + hm_trans('Please enter a valid email address with a proper domain (e.g., user@example.com)') + '</div>');
         } else {
             $(this).removeClass('is-invalid');
-            $(this).next('.invalid-feedback').remove();
         }
     });
 
@@ -32,7 +32,7 @@ function applyContactsPageHandlers() {
     $('#contact_email').on('input', function() {
         if ($(this).hasClass('is-invalid')) {
             $(this).removeClass('is-invalid');
-            $(this).next('.invalid-feedback').remove();
+            $(this).siblings('.invalid-feedback').remove();
         }
     });
 
