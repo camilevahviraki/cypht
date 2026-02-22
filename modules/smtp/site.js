@@ -336,26 +336,106 @@ var copy_text_to_clipboard = function(e) {
 }
 
 var is_valid_recipient = function(recipient) {
+    // This function extracts an email address from RFC 5322 formatted recipient strings
+    // and validates it using Hm_Utils.is_valid_email()
     if (!recipient) {
         return false;
     }
     var val = recipient.trim();
 
-    // Check format: "Display Name <email@example.com>", "Display Name email@example.com", or "email@example.com"
-    var match = val.match(/^(.+)\s+<([^>]+)>$/);
-    var email;
-
-    if (match) {
-        // Format: "Display Name <email>"
-        email = match[2].trim();
-    } else if (!val.includes('<') && !val.includes('>')) {
-        // Format: "email" or "Display Name email" (no angle brackets)
-        // Extract last word as email
-        email = val.split(/\s+/).pop();
-    } else {
+    if (!val) {
         return false;
     }
 
+    // Step 1: Remove comments in parentheses (RFC 5322 allows comments)
+    // Examples: "Name (comment) <email>", "email@domain.com (comment)"
+    // Handle nested parentheses properly
+    var depth = 0;
+    var cleaned = '';
+    for (var i = 0; i < val.length; i++) {
+        if (val[i] === '(') {
+            depth++;
+        } else if (val[i] === ')') {
+            depth--;
+        } else if (depth === 0) {
+            cleaned += val[i];
+        }
+    }
+    // Collapse multiple whitespaces and trim
+    val = cleaned.replace(/\s+/g, ' ').trim();
+
+    if (!val) {
+        return false;
+    }
+
+    // Step 2: Handle RFC 5322 group syntax: "display-name : mailbox-list ;"
+    // After splitting by comma/semicolon, we might get "Group Name: email@domain.com"
+    // BUT: Ignore colons inside square brackets (IPv6 addresses like user@[IPv6:2001:db8::1])
+    if (val.includes(':') && !val.includes('<')) {
+        var colonIndex = val.indexOf(':');
+        var bracketIndex = val.indexOf('[');
+
+        // Only treat as group syntax if colon appears before any brackets
+        // or if there are no brackets at all
+        if (bracketIndex === -1 || colonIndex < bracketIndex) {
+            var afterColon = val.substring(colonIndex + 1).trim();
+            if (afterColon) {
+                val = afterColon;
+            } else {
+                // Empty group like "Undisclosed recipients:;" - no email to extract
+                return false;
+            }
+        }
+    }
+
+    // Step 3: Extract email from angle brackets or plain text
+    var email = '';
+    var angleBracketMatch = val.match(/<([^>]+)>/);
+
+    if (angleBracketMatch) {
+        // Format: "Display Name <email@example.com>"
+        email = angleBracketMatch[1].trim();
+    } else {
+        // No angle brackets - extract email from plain text
+        // Remove quoted display name if present: "Display Name" email@example.com
+        val = val.replace(/^"[^"]*"\s+/, '');
+
+        // Find the word containing @ (typically the last word)
+        var parts = val.split(/\s+/);
+        for (var i = parts.length - 1; i >= 0; i--) {
+            if (parts[i].includes('@')) {
+                email = parts[i];
+                break;
+            }
+        }
+    }
+
+    if (!email) {
+        return false;
+    }
+
+    // Step 4: Clean up extracted email (remove trailing punctuation from splitting)
+    // Preserve quoted local-part (e.g., "user name"@example.com)
+    if (email.includes('@')) {
+        var atPos = email.indexOf('@');
+        var localPart = email.substring(0, atPos);
+        var domainPart = email.substring(atPos);
+
+        // Clean domain part (remove trailing commas, semicolons, etc.)
+        domainPart = domainPart.replace(/[,;]+$/g, '').trim();
+
+        // Clean local part only if quotes aren't wrapping it completely
+        if (!(localPart.startsWith('"') && localPart.endsWith('"'))) {
+            localPart = localPart.replace(/^["',;]+|["',;]+$/g, '').trim();
+        }
+
+        email = localPart + domainPart;
+    } else {
+        email = email.replace(/^["',;]+|["',;]+$/g, '').trim();
+    }
+
+    // Step 5: Validate the extracted email using the core validation function
+    // All RFC 5322 validation rules are handled by is_valid_email
     return Hm_Utils.is_valid_email(email);
 };
 
