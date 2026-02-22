@@ -113,10 +113,8 @@ class Hm_Handler_process_import_contact extends Hm_Handler_Module {
                         'phone_number' => $data[2] ?? ''
                     ];
                     $email = $data[1];
-                    // Use both PHP's built-in filter and custom validation for defense in depth
-                    // FILTER_VALIDATE_EMAIL provides basic format validation
-                    // is_email_address() enforces FQDN requirement (requires TLD)
-                    if (!filter_var($email, FILTER_VALIDATE_EMAIL) || !is_email_address($email, false)) {
+                    // RFC 5322 compliant email validation
+                    if (!is_email_address($email, false)) {
                         $single_contact['status'] = 'invalid email';
                         array_push($import_result, $single_contact);
                         $invalid_mail_count++;
@@ -258,13 +256,13 @@ class Hm_Output_contacts_form extends Hm_Output_Module {
             $button = '<input type="hidden" name="contact_id" value="'.$this->html_safe($current['id']).'" />'.
                 '<input class="btn btn-primary edit_contact_submit" type="submit" name="edit_contact" value="'.$this->trans('Update').'" />';
         }
-        $form_html = '<div class="add_contact_responsive"><form class="add_contact_form search_terms" method="POST">'.
-            '<button class="server_title mt-2 btn btn-light"><i class="bi bi-person-add me-2"></i>'.$title.'</button>'.
+        $form_html = '<div class="add_contact_responsive"><form class="add_contact_form search_terms" method="POST" novalidate>'.
+            '<button type="button" class="server_title mt-2 btn btn-light"><i class="bi bi-person-add me-2"></i>'.$title.'</button>'.
             '<div class="'.$form_class.'">'.
             '<input type="hidden" name="contact_source" value="local" />'.
             '<input type="hidden" name="hm_page_key" value="'.$this->html_safe(Hm_Request_Key::generate()).'" />'.
             '<label class="form-label" for="contact_email">'.$this->trans('E-mail Address').' *</label>'.
-            '<input class="form-control" required placeholder="'.$this->trans('E-mail Address').'" id="contact_email" type="email" name="contact_email" '.
+            '<input class="form-control" required placeholder="'.$this->trans('E-mail Address').'" id="contact_email" type="text" name="contact_email" '.
             'value="'.$this->html_safe($email).'" /><br />'.
             '<label class="form-label" for="contact_name">'.$this->trans('Full Name').' *</label>'.
             '<input class="form-control" required placeholder="'.$this->trans('Full Name').'" id="contact_name" type="text" name="contact_name" '.
@@ -295,8 +293,8 @@ class Hm_Output_import_contacts_form extends Hm_Output_Module {
         $title = $this->trans('Import from CSV file');
         $csv_sample_path = WEB_ROOT.'modules/local_contacts/assets/data/contact_sample.csv';
 
-        return '<div class="add_contact_responsive"><form class="add_contact_form" method="POST" enctype="multipart/form-data">'.
-            '<button class="server_title mt-2 btn btn-light" title="'.$notice.'"><i class="bi bi-person-add me-2"></i>'.$title.'</button>'.
+        return '<div class="add_contact_responsive"><form class="add_contact_form" method="POST" enctype="multipart/form-data" novalidate>'.
+            '<button type="button" class="server_title mt-2 btn btn-light" title="'.$notice.'"><i class="bi bi-person-add me-2"></i>'.$title.'</button>'.
             '<div class="'.$form_class.'">'.
             '<div><a href="'.$csv_sample_path.'" data-external="true">'.$this->trans('download a sample csv file').'</a></div><br />'.
             '<input type="hidden" name="contact_source" value="csv" />'.
