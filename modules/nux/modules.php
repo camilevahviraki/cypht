@@ -463,7 +463,7 @@ class Hm_Output_quick_add_dialog extends Hm_Output_Module {
             '<label for="service_select">'.$this->trans('Select an E-mail provider').'</label></div>'.
 
             '<div class="form-floating mb-3">'.
-            '<input type="email" id="nux_username" class="form-control nux_username" placeholder="'.$this->trans('Your E-mail address').'">'.
+            '<input type="text" id="nux_username" class="form-control nux_username" placeholder="'.$this->trans('Your E-mail address').'">'.
             '<label for="nux_username">'.$this->trans('Username').'</label></div>'.
 
             '<div class="form-floating mb-3">'.

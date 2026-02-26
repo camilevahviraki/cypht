@@ -475,7 +475,7 @@ class Hm_Handler_save_contact extends Hm_Handler_Module
             $emailKeyMap = [];
             foreach ($contact_list as $key => $contact) {
                 $email = strtolower($contact->value('email_address'));
-                if (filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                if (is_email_address($email, false)) {
                     $emailKeyMap[$email] = $key;
                 }
             }
@@ -490,7 +490,7 @@ class Hm_Handler_save_contact extends Hm_Handler_Module
                 $addresses = process_address_fld($addr);
                 $newEmails = array_column($addresses, 'email');
                 $validEmails = array_filter($newEmails, function($email) {
-                    return filter_var($email, FILTER_VALIDATE_EMAIL);
+                    return is_email_address($email, false);
                 });
                 if (empty($validEmails)) {
                     continue;
