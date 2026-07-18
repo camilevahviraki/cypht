@@ -208,20 +208,41 @@ function reply_to_address($headers, $type) {
         }
     }
     if ($type == 'reply_all') {
+        // Build the cc list from to+cc combined so duplicates collapse.
+        $all_cc = array();
+        $all_cc_parsed = $parsed;
         if (array_key_exists('cc', $headers)) {
-            list($cc_parsed, $msg_cc) = format_reply_address($headers['cc'], $parsed);
-            $parsed += $cc_parsed;
+            list($cc_parsed, $cc_str) = format_reply_address($headers['cc'], $all_cc_parsed);
+            $all_cc_parsed += $cc_parsed;
+            foreach ($cc_parsed as $cc_addr) {
+                $all_cc[mb_strtolower($cc_addr['email'])] = $cc_addr;
+            }
         }
         if (array_key_exists('to', $headers)) {
-            list($parsed, $recips) = format_reply_address($headers['to'], $parsed);
-            if ($recips) {
-                if ($msg_cc) {
-                    $msg_cc .= ', '.$recips;
-                }
-                else {
-                    $msg_cc = $recips;
-                }
+            list($to_parsed, $to_str) = format_reply_address($headers['to'], $all_cc_parsed);
+            foreach ($to_parsed as $to_addr) {
+                $all_cc[mb_strtolower($to_addr['email'])] = $to_addr;
             }
+        }
+        // Remove the main To (msg_to) from Cc
+        $main_to_email = '';
+        if ($msg_to) {
+            if (preg_match('/([\w.%-]+@[\w.-]+)/', $msg_to, $matches)) {
+                $main_to_email = mb_strtolower($matches[1]);
+            }
+        }
+        if ($main_to_email && isset($all_cc[$main_to_email])) {
+            unset($all_cc[$main_to_email]);
+        }
+        // Build msg_cc string
+        if (!empty($all_cc)) {
+            $msg_cc = implode(', ', array_map(function($v) {
+                if (trim($v['label'])) {
+                    return str_replace([',', ';'], '', $v['label']).' '.$v['email'];
+                } else {
+                    return $v['email'];
+                }
+            }, $all_cc));
         }
     }
     return array($msg_to, $msg_cc);
@@ -617,40 +638,4 @@ function addr_parse($str) {
     $label = implode(' ', $label);
     if (preg_match('/\([^)]+\)/', $label, $matches)) {
         foreach ($matches as $match) {
-            $comment[] = $match;
-            $label = str_replace($match, '', $label);
-        }
-        $comment = implode(',', $comment);
-    }
-    else {
-        $comment = '';
-    }
-    return array('email' => $email, 'label' => preg_replace('/[\pZ\pC]+/u', ' ', trim($label, ' \'"')), 'comment' => $comment);
-}}
-
-/**
- * Parse an address field
- * @param $fld string field value
- * @return array results
- */
-if (!hm_exists('process_address_fld')) {
-function process_address_fld($fld) {
-    $res = array();
-    $count = 0;
-    $pre = false;
-    foreach (addr_split($fld) as $str) {
-        $addr = addr_parse($str);
-        if ($addr['email']) {
-            if ($pre) {
-                $addr['label'] = $pre.' '.$addr['label'];
-                $pre = false;
-            }
-            $res[$count] = $addr;
-        }
-        elseif ($addr['label']) {
-            $pre = $addr['label'];
-        }
-        $count++;
-    }
-    return $res;
-}}
+         
