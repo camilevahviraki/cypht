@@ -638,4 +638,40 @@ function addr_parse($str) {
     $label = implode(' ', $label);
     if (preg_match('/\([^)]+\)/', $label, $matches)) {
         foreach ($matches as $match) {
-         
+            $comment[] = $match;
+            $label = str_replace($match, '', $label);
+        }
+        $comment = implode(',', $comment);
+    }
+    else {
+        $comment = '';
+    }
+    return array('email' => $email, 'label' => preg_replace('/[\pZ\pC]+/u', ' ', trim($label, ' \'"')), 'comment' => $comment);
+}}
+
+/**
+ * Parse an address field
+ * @param $fld string field value
+ * @return array results
+ */
+if (!hm_exists('process_address_fld')) {
+function process_address_fld($fld) {
+    $res = array();
+    $count = 0;
+    $pre = false;
+    foreach (addr_split($fld) as $str) {
+        $addr = addr_parse($str);
+        if ($addr['email']) {
+            if ($pre) {
+                $addr['label'] = $pre.' '.$addr['label'];
+                $pre = false;
+            }
+            $res[$count] = $addr;
+        }
+        elseif ($addr['label']) {
+            $pre = $addr['label'];
+        }
+        $count++;
+    }
+    return $res;
+}}
